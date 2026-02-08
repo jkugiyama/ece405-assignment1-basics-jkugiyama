@@ -2,7 +2,7 @@ import argparse
 import logging
 import pickle
 
-from cs336_basics import bpe
+from cs336_basics import train_bpe
 
 parser = argparse.ArgumentParser("run_train_bpe")
 parser.add_argument("--input-path", required=True)
