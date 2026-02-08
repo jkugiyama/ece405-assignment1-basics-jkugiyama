@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 def run_train_bpe(input_path, vocab_size, special_tokens=None, num_processes=1):
     """Core BPE training function."""
     special_tokens = special_tokens or []
-    vocab, merges = bpe.train_bpe(
+    vocab, merges = train_bpe.train_bpe(
         input_path,
         vocab_size,
         special_tokens,
