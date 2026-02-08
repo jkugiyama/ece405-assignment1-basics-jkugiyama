@@ -111,7 +111,8 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    raise NotImplementedError
+    from cs336_basics.scaled_dot_product_attention import scaled_dot_product_attention
+    return scaled_dot_product_attention(Q, K, V, mask)
 
 
 def run_multihead_self_attention(
@@ -145,7 +146,11 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    from cs336_basics.multihead_self_attention import MultiHeadSelfAttention 
+    mha = MultiHeadSelfAttention(d_model, num_heads)
+    mha.qkv_proj.weight.data = torch.cat([q_proj_weight, k_proj_weight, v_proj_weight], dim=0)
+    mha.out_proj.weight.data = o_proj_weight
+    return mha(in_features)
 
 
 def run_multihead_self_attention_with_rope(
@@ -207,7 +212,10 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    raise NotImplementedError
+    from cs336_basics.rope import RotaryPositionalEmbedding
+
+    rope = RotaryPositionalEmbedding(theta, d_k, max_seq_len)
+    return rope(in_query_or_key, token_positions)
 
 
 def run_transformer_block(
@@ -280,7 +288,16 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    from cs336_basics.transformer_block import TransformerBlock
+    transformer_block = TransformerBlock(
+        d_model, num_heads, d_ff, max_seq_len, theta
+    )
+    load_result = transformer_block.load_state_dict(weights)
+    if load_result.missing_keys or load_result.unexpected_keys:
+        raise Exception(
+            f"load_state_dict mismatch. missing_keys: {load_result.missing_keys}; unexpected_keys: {load_result.unexpected_keys}"
+        )
+    return transformer_block(in_features)
 
 
 def run_transformer_lm(
@@ -362,7 +379,12 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    from cs336_basics.transformer_lm import TransformerLm
+    lm = TransformerLm(
+        d_model, num_heads, d_ff, rope_theta, vocab_size, context_length, num_layers
+    )
+    lm.load_state_dict(weights)
+    return lm(in_indices)
 
 
 def run_rmsnorm(
