@@ -90,7 +90,15 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    from cs336_basics.swiglu import Swiglu
+
+    swiglu = Swiglu(d_model=d_model, d_ff=d_ff)
+
+    swiglu.w1.W.data = w1_weight
+    swiglu.w2.W.data = w2_weight
+    swiglu.w3.W.data = w3_weight
+
+    return swiglu(in_features)
 
 
 def run_scaled_dot_product_attention(
@@ -568,8 +576,8 @@ def run_save_checkpoint(
             we've completed.
         out (str | os.PathLike | BinaryIO | IO[bytes]): Path or file-like object to serialize the model, optimizer, and iteration to.
     """
-    raise NotImplementedError
-
+    from cs336_basics.checkpointing import save_checkpoint 
+    save_checkpoint(model, optimizer, iteration, out)
 
 def run_load_checkpoint(
     src: str | os.PathLike | BinaryIO | IO[bytes],
@@ -589,7 +597,8 @@ def run_load_checkpoint(
     Returns:
         int: the previously-serialized number of iterations.
     """
-    raise NotImplementedError
+    from cs336_basics.checkpointing import load_checkpoint
+    return load_checkpoint(src, model, optimizer)
 
 
 def get_tokenizer(
@@ -612,9 +621,9 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    from cs336_basics.get_tokenizer import Tokenizer as _Tokenizer
+    from cs336_basics.get_tokenizer import Tokenizer
 
-    return _Tokenizer(vocab, merges, special_tokens)
+    return Tokenizer(vocab, merges, special_tokens)
 
 
 def run_train_bpe(
@@ -644,5 +653,5 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    from cs336_basics.run_train_bpe import run_train_bpe as _run_train_bpe
-    return _run_train_bpe(input_path, vocab_size, special_tokens, **kwargs)
+    from cs336_basics.run_train_bpe import run_train_bpe
+    return run_train_bpe(input_path, vocab_size, special_tokens, **kwargs)
