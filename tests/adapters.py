@@ -29,7 +29,6 @@ def run_linear(
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
     from cs336_basics.linear import Linear  
-
     linear = Linear(d_in, d_out)
     linear.W.data = weights
     return linear(in_features)
@@ -154,10 +153,12 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    from cs336_basics.multihead_self_attention import MultiHeadSelfAttention 
-    mha = MultiHeadSelfAttention(d_model, num_heads)
-    mha.qkv_proj.weight.data = torch.cat([q_proj_weight, k_proj_weight, v_proj_weight], dim=0)
-    mha.out_proj.weight.data = o_proj_weight
+    from cs336_basics.multihead_self_attention import MultiheadSelfAttention 
+    mha = MultiheadSelfAttention(d_model, num_heads)
+    mha.q_proj.W.data = q_proj_weight
+    mha.k_proj.W.data = k_proj_weight
+    mha.v_proj.W.data = v_proj_weight    
+    mha.output_proj.W.data = o_proj_weight    
     return mha(in_features)
 
 
@@ -198,8 +199,19 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    from cs336_basics.multihead_self_attention import MultiheadSelfAttention 
+    mha = MultiheadSelfAttention(
+        d_model,
+        num_heads,
+        max_seq_len=max_seq_len,
+        theta=theta,
+    )
+    mha.q_proj.W.data = q_proj_weight
+    mha.k_proj.W.data = k_proj_weight
+    mha.v_proj.W.data = v_proj_weight
+    mha.output_proj.W.data = o_proj_weight
 
+    return mha(in_features, token_positions=token_positions)
 
 def run_rope(
     d_k: int,
@@ -298,13 +310,22 @@ def run_transformer_block(
     """
     from cs336_basics.transformer_block import TransformerBlock
     transformer_block = TransformerBlock(
-        d_model, num_heads, d_ff, max_seq_len, theta
+        d_model=d_model,
+        num_heads=num_heads,
+        d_ff=d_ff,
+        max_seq_len=max_seq_len,
+        theta=theta,
+        device=in_features.device,
+        dtype=in_features.dtype
     )
-    load_result = transformer_block.load_state_dict(weights)
-    if load_result.missing_keys or load_result.unexpected_keys:
-        raise Exception(
-            f"load_state_dict mismatch. missing_keys: {load_result.missing_keys}; unexpected_keys: {load_result.unexpected_keys}"
-        )
+    # Rename .weight keys to .W for Linear layers to match custom Linear parameter naming
+    adjusted_weights = {}
+    for k, v in weights.items():
+        # Replace .weight with .W only for Linear layers (q_proj, k_proj, v_proj, output_proj, w1, w3, w2)
+        if any(layer in k for layer in ['q_proj', 'k_proj', 'v_proj', 'output_proj', 'w1', 'w3', 'w2']):
+            k = k.replace('.weight', '.W')
+        adjusted_weights[k] = v
+    transformer_block.load_state_dict(adjusted_weights)
     return transformer_block(in_features)
 
 
@@ -391,7 +412,14 @@ def run_transformer_lm(
     lm = TransformerLm(
         d_model, num_heads, d_ff, rope_theta, vocab_size, context_length, num_layers
     )
-    lm.load_state_dict(weights)
+    # Rename .weight keys to .W for Linear layers to match custom Linear parameter naming
+    adjusted_weights = {}
+    for k, v in weights.items():
+        # Replace .weight with .W only for Linear layers (q_proj, k_proj, v_proj, output_proj, w1, w3, w2, lm_head)
+        if any(layer in k for layer in ['q_proj', 'k_proj', 'v_proj', 'output_proj', 'w1', 'w3', 'w2', 'lm_head']):
+            k = k.replace('.weight', '.W')
+        adjusted_weights[k] = v
+    lm.load_state_dict(adjusted_weights)
     return lm(in_indices)
 
 
