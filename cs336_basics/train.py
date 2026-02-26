@@ -82,14 +82,13 @@ class MemmapDataset:
 # -------------------------------------------------
 
 def build_model(config: TrainConfig):
-    return nn.Transformer(
+    encoder_layer = nn.TransformerEncoderLayer(
         d_model=config.d_model,
         nhead=config.num_heads,
-        num_encoder_layers=config.num_layers,
-        num_decoder_layers=config.num_layers,
         dim_feedforward=4 * config.d_model,
         batch_first=True,
     )
+    return nn.TransformerEncoder(encoder_layer, num_layers=config.num_layers)
 
 
 # -------------------------------------------------
@@ -122,7 +121,7 @@ def save_checkpoint(model, optimizer, step, config):
 # -------------------------------------------------
 
 @torch.no_grad()
-def evaluate(model, dataset, config, device):
+def evaluate(model, embedding, dataset, config, device):
     model.eval()
 
     x, y = dataset.sample_batch(
@@ -131,7 +130,8 @@ def evaluate(model, dataset, config, device):
         device,
     )
 
-    logits = model(x, x)
+    x_emb = embedding(x)
+    logits = model(x_emb)
 
     loss = nn.functional.cross_entropy(
         logits.view(-1, logits.size(-1)),
@@ -159,11 +159,14 @@ def train(config: TrainConfig):
 
     model = build_model(config).to(device)
 
+    # Add embedding layer for token IDs
+    embedding = nn.Embedding(config.vocab_size, config.d_model).to(device)
+
     if config.compile_model:
         model = torch.compile(model)
 
     optimizer = optim.AdamW(
-        model.parameters(),
+        list(model.parameters()) + list(embedding.parameters()),
         lr=config.learning_rate,
         weight_decay=config.weight_decay,
     )
@@ -184,8 +187,8 @@ def train(config: TrainConfig):
 
         optimizer.zero_grad()
 
-        logits = model(x, x)
-
+        x_emb = embedding(x)
+        logits = model(x_emb)
         loss = nn.functional.cross_entropy(
             logits.view(-1, logits.size(-1)),
             y.view(-1),
@@ -198,10 +201,11 @@ def train(config: TrainConfig):
         if step % 10 == 0:
             print(f"Step {step} | Train Loss: {loss.item():.4f}")
 
+
         # Validation
         if val_data and step % config.validation_interval == 0:
 
-            val_loss = evaluate(model, val_data, config, device)
+            val_loss = evaluate(model, embedding, val_data, config, device)
 
             print(
                 f"Step {step} | "

@@ -79,7 +79,7 @@ def main():
     # Load model
     model_module = importlib.import_module(args.model_module)
     ModelClass = getattr(model_module, args.model_class)
-    checkpoint = torch.load(args.checkpoint, map_location=args.device)
+    checkpoint = torch.load(args.checkpoint, map_location=args.device, weights_only=False)   
     config = checkpoint["config"]
     model = ModelClass(
         d_model=config.d_model,
